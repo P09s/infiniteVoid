@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import gojoInitial from '../assets/gojo-initial.jpg'; // Import Gojo image as a module
 
 function InitialScreen() {
   return (
@@ -8,7 +9,7 @@ function InitialScreen() {
       transition={{ duration: 1.5 }}
       className="fixed inset-0 bg-cover bg-center flex flex-col items-center justify-center z-10"
       style={{
-        backgroundImage: `url('/src/assets/gojo-initial.jpg')`, // your Gojo image
+        backgroundImage: `url(${gojoInitial})`, // your Gojo image
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
