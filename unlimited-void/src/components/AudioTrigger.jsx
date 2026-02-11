@@ -9,8 +9,16 @@ function AudioTrigger({ onTrigger }) {
   const hasTriggeredRef = useRef(false);
   const streamRef = useRef(null);
 
-  // Keywords to detect
-  const KEYWORDS = ['ryoiki tenkai', 'domain expansion', 'unlimited void'];
+  // 1. Expanded keywords to catch phonetic variations on mobile
+  const KEYWORDS = [
+    'ryoiki tenkai', 
+    'domain expansion', 
+    'unlimited void', 
+    'ryoki tenkai',
+    'tenkai', 
+    'expansion',
+    'void'
+  ];
 
   useEffect(() => {
     // Load Annyang library
@@ -56,22 +64,6 @@ function AudioTrigger({ onTrigger }) {
     try {
       setStatus('🔒 Requesting microphone permission...');
       
-      // Chrome fix: Enumerate devices first to warm up the system
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioDevices = devices.filter(device => device.kind === 'audioinput');
-        console.log('Found audio devices:', audioDevices.length);
-        
-        if (audioDevices.length === 0) {
-          setStatus('❌ No microphone detected');
-          setErrorDetails('Connect a microphone and refresh the page');
-          return;
-        }
-      } catch (enumErr) {
-        console.warn('Could not enumerate devices, continuing anyway:', enumErr);
-      }
-
-      // Request microphone with specific constraints
       const constraints = {
         audio: {
           echoCancellation: true,
@@ -80,19 +72,10 @@ function AudioTrigger({ onTrigger }) {
         }
       };
 
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err) {
-        // Fallback to basic audio request
-        console.warn('Detailed constraints failed, trying basic:', err);
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       setStatus('✅ Microphone access granted!');
 
-      // Setup audio context for volume visualization
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContext();
       
@@ -101,57 +84,43 @@ function AudioTrigger({ onTrigger }) {
       }
       audioContextRef.current = audioContext;
 
-      // Create voice command handlers
-      const commands = {};
-      
-      // Add all keywords as commands
-      KEYWORDS.forEach(keyword => {
-        commands[keyword] = () => {
-          if (!hasTriggeredRef.current) {
-            console.log('✨ KEYWORD DETECTED:', keyword);
-            hasTriggeredRef.current = true;
-            onTrigger();
-          }
-        };
-      });
+      // 2. Setup commands using a wildcard to catch speech in real-time
+      const commands = {
+        '*transcript': (transcript) => {
+          if (transcript) {
+            const lowerTranscript = transcript.toLowerCase().trim();
+            setDetectedText(lowerTranscript); // Visual feedback for mobile
 
-      // Also capture partial matches with wildcard
-      commands['*transcript'] = (transcript) => {
-        if (transcript) {
-          const lowerTranscript = transcript.toLowerCase().trim();
-          setDetectedText(lowerTranscript);
-
-          // Check for keywords in transcript
-          KEYWORDS.forEach(keyword => {
-            if (lowerTranscript.includes(keyword) && !hasTriggeredRef.current) {
-              console.log('✨ KEYWORD DETECTED (partial):', keyword);
+            // Check if any keyword exists in the transcript
+            const foundKeyword = KEYWORDS.some(keyword => lowerTranscript.includes(keyword));
+            
+            if (foundKeyword && !hasTriggeredRef.current) {
+              console.log('✨ KEYWORD DETECTED:', lowerTranscript);
               hasTriggeredRef.current = true;
               onTrigger();
             }
-          });
+          }
         }
       };
 
-      // Set language to Indian English
-      window.annyang.setLanguage('en-IN');
-
-      // Add commands
+      // 3. Set language and add a result callback for better mobile debugging
+      window.annyang.setLanguage('en-US'); // Standard for Android Speech engines
       window.annyang.addCommands(commands);
 
-      // Start recognition with better error handling
-      try {
-        window.annyang.start({ autoRestart: true, continuous: true });
-        setStatus('🎤 Listening for keywords... (Annyang active)');
-      } catch (startErr) {
-        console.error('Error starting annyang:', startErr);
-        setStatus('⚠️ Speech recognition started with issues');
-      }
+      // Explicitly show what the phone is hearing via a callback
+      window.annyang.addCallback('result', (userSaid) => {
+        if (userSaid && userSaid.length > 0) {
+          setDetectedText(userSaid[0].toLowerCase());
+        }
+      });
 
-      // Setup volume monitoring with the existing stream
+      // Start recognition
+      window.annyang.start({ autoRestart: true, continuous: true });
+      setStatus('🎤 Listening for "Ryoiki Tenkai"...');
+
+      // Setup volume visualization
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.1;
-
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
 
@@ -164,8 +133,7 @@ function AudioTrigger({ onTrigger }) {
         for (let i = 0; i < bufferLength; i++) {
           sum += dataArray[i];
         }
-        const avg = sum / bufferLength;
-        setVolume(Math.round(avg));
+        setVolume(Math.round(sum / bufferLength));
         requestAnimationFrame(checkVolume);
       };
 
@@ -174,19 +142,7 @@ function AudioTrigger({ onTrigger }) {
     } catch (err) {
       console.error('Setup failed:', err.name, err.message);
       setErrorDetails(`${err.name}: ${err.message}`);
-      
-      if (err.name === 'NotFoundError') {
-        setStatus('❌ No microphone found');
-        setErrorDetails('Check: 1) Microphone plugged in? 2) Permission denied in Chrome settings?');
-      } else if (err.name === 'NotAllowedError') {
-        setStatus('❌ Microphone permission denied');
-        setErrorDetails('Click the lock icon in the URL bar and allow microphone access');
-      } else if (err.name === 'NotReadableError') {
-        setStatus('❌ Microphone in use by another app');
-        setErrorDetails('Close other apps using the microphone (Discord, Zoom, etc.)');
-      } else {
-        setStatus('❌ Failed to initialize speech recognition');
-      }
+      setStatus('❌ Microphone Error');
     }
   };
 
@@ -194,33 +150,32 @@ function AudioTrigger({ onTrigger }) {
     <div className="mt-8 text-center px-4 max-w-2xl mx-auto">
       <p className="text-xl font-semibold text-yellow-300 mb-3">{status}</p>
       
+      {/* Real-time feedback helps you see if the phone is hearing you */}
       {detectedText && (
-        <p className="text-lg text-cyan-300 mb-3 animate-pulse font-mono">
-          Heard: <span className="font-bold text-green-400">"{detectedText}"</span>
-        </p>
+        <div className="mb-4 p-3 bg-white/10 rounded-lg border border-white/20">
+          <p className="text-xs opacity-60 uppercase tracking-widest mb-1">Detected Speech</p>
+          <p className="text-lg text-cyan-300 animate-pulse font-mono">
+            "{detectedText}"
+          </p>
+        </div>
       )}
 
-      {volume > 0 && (
-        <p className="text-lg">
-          Live volume: <span className="font-bold text-green-400">{volume}</span> / 255
-          <br />
-          <small>(Speak louder for better recognition)</small>
-        </p>
-      )}
+      {/* Volume Visualizer */}
+      <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
+        <div 
+          className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-75"
+          style={{ width: `${Math.min((volume / 100) * 100, 100)}%` }}
+        />
+      </div>
+      <p className="text-[10px] opacity-50 mb-6">Mic Sensitivity: {volume}</p>
 
-      <p className="text-sm mt-6 opacity-80">
-        <strong>Keywords to say:</strong>
-        <br />
-        "Ryoiki Tenkai" • "Domain Expansion" • "Unlimited Void"
+      <p className="text-sm opacity-80">
+        <strong>Keywords:</strong> "Ryoiki Tenkai" • "Domain Expansion"
       </p>
 
       {errorDetails && (
         <div className="mt-6 p-3 bg-red-900/30 border border-red-700 rounded text-red-300 text-sm">
           {errorDetails}
-          <br />
-          <small className="opacity-70 mt-2 block">
-            Try: 1) Check microphone in System Settings, 2) Refresh page, 3) Try Safari
-          </small>
         </div>
       )}
     </div>
