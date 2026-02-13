@@ -6,13 +6,13 @@ function AudioTrigger({ onTrigger, isEnabled }) {
   const [errorDetails, setErrorDetails] = useState('');
   const [detectedText, setDetectedText] = useState('');
   
-  // Use refs to avoid triggering effect on every render
   const recognitionRef = useRef(null);
   const audioContextRef = useRef(null);
   const hasTriggeredRef = useRef(false);
   const streamRef = useRef(null);
   const isInitializedRef = useRef(false);
   const animationFrameRef = useRef(null);
+  const permissionRequestedRef = useRef(false); // NEW: Track if we already asked
 
   const keywordsRef = useRef([
     'ryoiki tenkai', 
@@ -48,16 +48,13 @@ function AudioTrigger({ onTrigger, isEnabled }) {
 
     console.log('✅ Web Speech API available');
 
-    // Create recognition instance (only once)
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
 
-    // Configure recognition
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.language = 'en-US';
 
-    // Set up event handlers (these stay the same throughout lifetime)
     recognition.onstart = () => {
       console.log('🎙️ Recognition started');
       setStatus('🎤 Listening for "Ryoiki Tenkai"...');
@@ -75,7 +72,6 @@ function AudioTrigger({ onTrigger, isEnabled }) {
           console.log('📝 Final result:', transcript);
           setDetectedText(transcript);
 
-          // Check for keywords
           const foundKeyword = keywordsRef.current.some(keyword => 
             transcript.includes(keyword)
           );
@@ -109,7 +105,6 @@ function AudioTrigger({ onTrigger, isEnabled }) {
     recognition.onend = () => {
       console.log('🛑 Recognition ended');
       
-      // Auto-restart if still enabled
       if (isEnabled && !hasTriggeredRef.current) {
         console.log('🔄 Restarting...');
         try {
@@ -122,7 +117,6 @@ function AudioTrigger({ onTrigger, isEnabled }) {
 
     console.log('✅ Recognition instance configured');
 
-    // Cleanup function
     return () => {
       console.log('🧹 Cleaning up recognition...');
       try {
@@ -131,9 +125,9 @@ function AudioTrigger({ onTrigger, isEnabled }) {
         console.log('Cleanup error:', err);
       }
     };
-  }, []); // Run ONLY once on mount
+  }, []);
 
-  // EFFECT 2: Handle isEnabled changes (start/stop listening)
+  // EFFECT 2: Handle isEnabled changes - REQUEST PERMISSION ONLY ONCE
   useEffect(() => {
     if (!recognitionRef.current) {
       console.log('⚠️ Recognition not ready yet');
@@ -141,19 +135,24 @@ function AudioTrigger({ onTrigger, isEnabled }) {
     }
 
     if (isEnabled) {
-      // Start listening
       if (isInitializedRef.current) {
-        console.log('✅ Already listening');
+        console.log('✅ Already listening, not requesting permission again');
         return;
       }
 
-      console.log('🎯 Starting speech recognition...');
+      // CRITICAL: Only request permission if we haven't already
+      if (permissionRequestedRef.current) {
+        console.log('⚠️ Permission already requested, waiting for result...');
+        return;
+      }
+
+      console.log('🎯 Requesting permission for first time...');
+      permissionRequestedRef.current = true; // Mark that we asked
 
       const startListening = async () => {
         try {
           setStatus('🎤 Requesting microphone...');
 
-          // Request microphone
           const constraints = {
             audio: {
               echoCancellation: true,
@@ -162,11 +161,12 @@ function AudioTrigger({ onTrigger, isEnabled }) {
             }
           };
 
+          // CRITICAL: This should only be called ONCE
+          console.log('📞 Calling getUserMedia...');
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           streamRef.current = stream;
           console.log('✅ Microphone stream obtained');
 
-          // Setup audio context for volume
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const audioContext = new AudioContext();
           
@@ -197,7 +197,7 @@ function AudioTrigger({ onTrigger, isEnabled }) {
 
           checkVolume();
 
-          // Check if already running before starting
+          // Start recognition
           try {
             recognitionRef.current.start();
             console.log('✅ Recognition started');
@@ -215,13 +215,14 @@ function AudioTrigger({ onTrigger, isEnabled }) {
           console.error('❌ Start error:', err.name, err.message);
           setErrorDetails(`${err.name}: ${err.message}`);
           setStatus('❌ Error');
+          // Reset the flag so user can try again
+          permissionRequestedRef.current = false;
         }
       };
 
       startListening();
 
     } else {
-      // Stop listening
       console.log('⏸️ Stopping speech recognition...');
 
       try {
@@ -249,10 +250,11 @@ function AudioTrigger({ onTrigger, isEnabled }) {
 
       isInitializedRef.current = false;
       hasTriggeredRef.current = false;
+      permissionRequestedRef.current = false; // Reset permission flag
       console.log('🛑 Stopped');
     }
 
-  }, [isEnabled]); // Only depend on isEnabled
+  }, [isEnabled]);
 
   return (
     <div className="mt-8 text-center px-4 max-w-2xl mx-auto">
