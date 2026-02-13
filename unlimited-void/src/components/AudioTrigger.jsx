@@ -21,7 +21,20 @@ function AudioTrigger({ onTrigger, isEnabled }) {
   // Updated keywords - now includes Hollow Purple variants
   const keywordsRef = useRef([
     'ryoiki tenkai', 'domain expansion', 'unlimited void', 
-    'ryoki', 'tenkai', 'expansion', 'void', 'muryokusho'
+    'ryoki', 'tenkai', 'expansion', 'void', 'muryokusho', 'rioki',
+    'tenka',
+    'ten',
+    'muryokusho',
+    'muryo',
+    'kusho',
+    'moriya',
+    'khush',
+    'ho',
+    'morya kusa',
+    'rio ki ten',
+    'ten',
+    'rio',
+    'rioki'
   ]);
 
   const hollowPurpleKeywordsRef = useRef([

@@ -113,114 +113,108 @@ function InitialScreen({ onPermissionGranted }) {
     }
   };
 
-  // 🟣 MOBILE BLOCKING MODAL 🟣
+  // 🟣 COMPACT MOBILE BLOCKING MODAL 🟣
   if (isMobile && !acknowledgedMobile) {
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3">
         {/* Dark background overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-purple-950 via-black to-black/80" />
 
-        {/* Modal Content */}
+        {/* Compact Modal Content */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          initial={{ opacity: 0, scale: 0.85, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.6, type: 'spring', stiffness: 100 }}
-          className="relative z-10 bg-gradient-to-br from-purple-900/95 via-purple-950/90 to-black/95 rounded-2xl p-8 md:p-12 max-w-md border-2 border-purple-600/60 shadow-2xl"
+          transition={{ duration: 0.5, type: 'spring', stiffness: 120 }}
+          className="relative z-10 bg-gradient-to-br from-purple-900/95 via-purple-950/90 to-black/95 rounded-xl p-5 sm:p-6 max-w-sm w-full border-2 border-purple-600/60 shadow-2xl"
         >
           {/* Glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-2xl blur-xl opacity-50" />
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-xl blur-xl opacity-50" />
 
           {/* Content */}
           <div className="relative z-10">
+            {/* DAEMON Notice - Top */}
+            <div className="bg-red-950/60 rounded-lg p-2 mb-3 border border-red-600/50 text-center">
+              <p className="text-red-300 font-black text-xs sm:text-sm">
+                ⚠️ DAEMON NOTICE ⚠️
+              </p>
+              <p className="text-red-200 font-bold text-xs mt-1">
+                Limited Mobile Experience
+              </p>
+            </div>
+
             {/* Icon */}
             <motion.div
-              animate={{ scale: [1, 1.1, 1] }}
+              animate={{ scale: [1, 1.08, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              className="text-6xl text-center mb-6"
+              className="text-4xl sm:text-5xl text-center mb-3"
             >
               💜
             </motion.div>
 
-            {/* Title */}
-            <h1 className="text-2xl md:text-3xl font-black text-center text-purple-200 mb-4 drop-shadow-lg">
-              Gojo Ka Aashirwad!
+            {/* Title - Hinglish */}
+            <h1 className="text-lg sm:text-xl font-black text-center text-purple-200 mb-2 drop-shadow-lg">
+              💜 Gojo Ka Aashirwad! 💜
             </h1>
 
-            {/* Main Message */}
-            <div className="bg-purple-950/50 rounded-xl p-5 mb-6 border border-purple-600/40">
-              <p className="text-center text-purple-100 font-bold text-lg leading-relaxed">
+            {/* Main Message - Hinglish */}
+            <div className="bg-purple-950/50 rounded-lg p-3 mb-3 border border-purple-600/40 text-center">
+              <p className="text-purple-100 font-bold text-sm leading-tight">
                 Gojo ko feel karna hai?
               </p>
-              <p className="text-center text-purple-300 font-semibold mt-3 text-base">
-                To <span className="text-purple-100 font-black">LAPTOP</span> mein dekho! 
+              <p className="text-purple-300 font-bold text-sm mt-1 leading-tight">
+                To <span className="text-purple-100 font-black">LAPTOP</span> mein dekho! 💻
               </p>
-              <p className="text-center text-red-300 font-bold mt-3 text-sm">
-                Choti screen mein experience kharab ho jayega! 😭
+              <p className="text-red-300 font-semibold text-xs mt-2 leading-tight">
+                Choti screen mein magic nahi chalega! 😭
               </p>
             </div>
 
-            {/* Voice Commands */}
-            <div className="bg-purple-950/40 rounded-lg p-4 mb-6 border border-purple-500/30">
-              <p className="text-center text-purple-300 text-sm font-semibold mb-2">
+            {/* Voice Commands - Hinglish */}
+            <div className="bg-purple-950/40 rounded-lg p-2.5 mb-3 border border-purple-500/30">
+              <p className="text-center text-purple-300 text-xs font-bold mb-1.5">
                 Laptop mein ye bolna:
               </p>
-              <div className="space-y-2">
-                <p className="text-center text-purple-100 font-bold text-base">
-                  🎤 "Ryoiki Tenkai"
-                </p>
-                <p className="text-center text-purple-200 text-xs opacity-80">
-                  or
-                </p>
-                <p className="text-center text-purple-100 font-bold text-base">
-                  🎤 "Domain Expansion"
-                </p>
-              </div>
+              <p className="text-center text-purple-100 font-black text-sm">
+                🎤 "Ryoiki Tenkai"
+              </p>
+              <p className="text-center text-purple-200 text-xs mt-1">
+                ya "Domain Expansion"
+              </p>
             </div>
 
-            {/* Warning */}
-            <motion.div
-              animate={{ opacity: [0.7, 1, 0.7] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="bg-red-950/40 rounded-lg p-3 mb-6 border border-red-600/40 text-center"
-            >
-              <p className="text-red-200 font-semibold text-sm">
-                ⚠️ Mobile pe ye magic nahi chalega! ⚠️
-              </p>
-            </motion.div>
-
-            {/* Buttons */}
-            <div className="space-y-3">
+            {/* Buttons - Hinglish */}
+            <div className="space-y-2">
               {/* Laptop Button */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   console.log('✅ User confirmed using laptop');
                   setAcknowledgedMobile(true);
                 }}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-lg text-base"
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white font-bold py-2 px-3 rounded-lg transition-all shadow-lg text-xs sm:text-sm"
               >
                 ✅ Laptop mein hoon!
               </motion.button>
 
-              {/* Mobile Accept Button - appears after a few seconds */}
+              {/* Mobile Accept Button */}
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 3 }}
+                transition={{ delay: 2.5 }}
                 onClick={() => {
                   console.log('⚠️ User acknowledged mobile limitation');
                   setAcknowledgedMobile(true);
                 }}
-                className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2 px-4 rounded-lg transition-all shadow-lg text-sm"
+                className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-1.5 px-3 rounded-lg transition-all shadow-lg text-xs"
               >
-                ⚠️ Phir bhi mobile pe chalana hai (Experience kharab hogi)
+                ⚠️ Phir bhi mobile pe chalana hai
               </motion.button>
             </div>
 
-            {/* Suggestion */}
-            <p className="text-center text-purple-300 text-xs mt-4 opacity-70">
-              💡 Best experience: Laptop ya Desktop!
+            {/* Footer */}
+            <p className="text-center text-purple-300 text-xs mt-2 opacity-60">
+              💡 Best on Desktop!
             </p>
           </div>
         </motion.div>
@@ -260,7 +254,7 @@ function InitialScreen({ onPermissionGranted }) {
           className="text-lg md:text-2xl mb-6 md:mb-8"
         >
           {permissionStatus === 'granted' 
-            ? 'Speak "Ryoiki Tenkai" to open.'
+            ? 'Speak "Ryoiki Tenkai / Domain Expansion" to open.'
             : 'Enable microphone to begin.'}
         </motion.p>
 
