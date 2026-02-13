@@ -1,7 +1,5 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
-
-// 1. IMPORT ASSETS AS MODULES (Crucial for Vercel/Production)
 import voidStatic from '../assets/void-static.png';
 import channelLogo from '../assets/channel-logo.jpeg';
 
@@ -12,21 +10,27 @@ export default function VoidAnimation({ phase }) {
     if (phase === 'video' && videoRef.current) {
       const playVideo = async () => {
         try {
-          // Reset and attempt play with audio
           videoRef.current.currentTime = 0;
           videoRef.current.muted = false; 
           videoRef.current.volume = 1.0;
 
-          await videoRef.current.play();
-          console.log('✨ Video playing with audio');
+          const playPromise = videoRef.current.play();
           
-        } catch (err) {
-          console.warn('Autoplay with sound blocked. Switching to muted fallback.', err);
-          // Fallback: Mute and play so the video still displays
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            videoRef.current.play().catch(e => console.error('Final play error:', e));
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('✨ Video playing with audio');
+              })
+              .catch(err => {
+                console.warn('Autoplay blocked. Using muted fallback.', err);
+                if (videoRef.current) {
+                  videoRef.current.muted = true;
+                  videoRef.current.play().catch(e => console.error('Final play error:', e));
+                }
+              });
           }
+        } catch (err) {
+          console.error('Play error:', err);
         }
       };
 
@@ -34,7 +38,13 @@ export default function VoidAnimation({ phase }) {
     }
   }, [phase]);
 
-  const messages = ["Subscribe DAEMON or you're GAYJO", "Subscribe DAEMON or you're GAYJO", "Subscribe DAEMON or you're GAYJO", "Subscribe DAEMON or you're GAYJO", "Subscribe DAEMON or you're GAYJO"];
+  const messages = [
+    "Subscribe DAEMON or you're GAYJO", 
+    "Subscribe DAEMON or you're GAYJO", 
+    "Subscribe DAEMON or you're GAYJO", 
+    "Subscribe DAEMON or you're GAYJO", 
+    "Subscribe DAEMON or you're GAYJO"
+  ];
   
   const infoItems = Array.from({ length: 30 }, (_, i) => ({
     text: messages[i % messages.length],
@@ -53,12 +63,11 @@ export default function VoidAnimation({ phase }) {
       transition={{ duration: 0.8 }}
       className="fixed inset-0 overflow-hidden bg-black"
       key={phase}
-      // Click handler to ensure mobile users can unmute
       onClick={() => {
         if (videoRef.current) {
           videoRef.current.muted = false;
           videoRef.current.volume = 1.0;
-          videoRef.current.play();
+          videoRef.current.play().catch(e => console.log('Click play:', e));
         }
       }}
     >
@@ -67,10 +76,10 @@ export default function VoidAnimation({ phase }) {
           <video
             ref={videoRef}
             playsInline
+            preload="auto"
             className="absolute inset-0 w-full h-full object-cover"
             style={{ pointerEvents: 'none', zIndex: 0 }}
           >
-            {/* 2. CORRECT PUBLIC PATH (No "public" in the string) */}
             <source src="/videos/unlimited-void-loop.mp4" type="video/mp4" />
           </video>
 
@@ -81,7 +90,6 @@ export default function VoidAnimation({ phase }) {
         </>
       ) : (
         <>
-          {/* 3. USE IMPORTED ASSETS FOR IMAGES */}
           <img 
             src={voidStatic} 
             alt="Void Static" 
@@ -117,7 +125,6 @@ export default function VoidAnimation({ phase }) {
         </>
       )}
 
-      {/* Text items and particles logic */}
       {infoItems.map((item, index) => (
         <motion.p
           key={index}
