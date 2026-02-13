@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 
-function AudioTrigger({ onTrigger, isEnabled, existingStream }) {
+function AudioTrigger({ onTrigger, isEnabled }) {
   const [status, setStatus] = useState('Ready to listen...');
   const [volume, setVolume] = useState(0);
   const [errorDetails, setErrorDetails] = useState('');
@@ -10,31 +10,27 @@ function AudioTrigger({ onTrigger, isEnabled, existingStream }) {
   const audioContextRef = useRef(null);
   const hasTriggeredRef = useRef(false);
   const streamRef = useRef(null);
-  const isInitializedRef = useRef(false);
   const animationFrameRef = useRef(null);
-  const permissionRequestedRef = useRef(false);
+  
+  // Detect mobile to prevent conflict
+  const isMobileRef = useRef(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
 
   const keywordsRef = useRef([
     'ryoiki tenkai', 'domain expansion', 'unlimited void', 
-    'ryoki tenkai', 'tenkai', 'expansion', 'void',
-    'rioki', 'tenka', 'ten', 'muryokusho', 'muryo', 'kusho',
-    'moriya', 'khush', 'ho', 'morya kusa'
+    'ryoki', 'tenkai', 'expansion', 'void', 'muryokusho'
   ]);
 
-  // EFFECT 1: Web Speech API Setup (Identical to before)
+  // EFFECT 1: Setup Speech Recognition
   useEffect(() => {
-    console.log('🚀 AudioTrigger mounting...');
+    // 1. Check Browser Support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
     if (!SpeechRecognition) {
-      console.error('❌ Web Speech API not supported');
-      setStatus('Speech recognition not supported');
+      setStatus('⚠️ Speech API not supported on this browser');
       return;
     }
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.language = 'en-US';
@@ -42,127 +38,119 @@ function AudioTrigger({ onTrigger, isEnabled, existingStream }) {
     recognition.onstart = () => {
       console.log('🎙️ Recognition started');
       setStatus('🎤 Listening for "Ryoiki Tenkai"...');
+      // If on mobile, start a "fake" visualizer so UI looks active
+      if (isMobileRef.current) startFakeVisualizer();
     };
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript.toLowerCase().trim();
-
         if (event.results[i].isFinal) {
-          console.log('📝 Final result:', transcript);
+          console.log('📝 Final:', transcript);
           setDetectedText(transcript);
-          const foundKeyword = keywordsRef.current.some(keyword => transcript.includes(keyword));
-
-          if (foundKeyword && !hasTriggeredRef.current) {
-            console.log('✨ KEYWORD DETECTED:', transcript);
+          const found = keywordsRef.current.some(k => transcript.includes(k));
+          if (found && !hasTriggeredRef.current) {
             hasTriggeredRef.current = true;
             onTrigger();
           }
         } else {
-          interimTranscript += transcript;
-          setDetectedText(transcript);
+          setDetectedText(transcript); // Show interim text
         }
       }
     };
 
     recognition.onerror = (event) => {
-      console.error('❌ Recognition error:', event.error);
+      console.error('❌ Error:', event.error);
       if (event.error !== 'no-speech') {
-        setErrorDetails(`Error: ${event.error}`);
+        setStatus(`❌ Retry: ${event.error}`);
+        // Auto-restart on some mobile errors
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+             setErrorDetails('Microphone blocked. Check site permissions.');
+        }
       }
     };
 
     recognition.onend = () => {
-      console.log('🛑 Recognition ended');
       if (isEnabled && !hasTriggeredRef.current) {
-        try { recognition.start(); } catch (err) { console.log('Restart error:', err.message); }
+        console.log('🔄 Restarting recognition...');
+        try { recognition.start(); } catch (e) { console.log(e); }
       }
     };
 
     return () => {
-      try { recognition.abort(); } catch (err) {}
+      try { recognition.abort(); } catch(e) {}
     };
   }, []);
 
-  // EFFECT 2: Handle Audio Context & Stream
+  // EFFECT 2: Manage Audio (Split logic for Mobile vs Desktop)
   useEffect(() => {
-    if (!recognitionRef.current) return;
+    if (!isEnabled || !recognitionRef.current) return;
 
-    if (isEnabled) {
-      if (isInitializedRef.current) return;
-
-      const startListening = async () => {
-        try {
-          let stream = existingStream;
-
-          // Only request mic if we didn't get one from props
-          if (!stream) {
-              if (permissionRequestedRef.current) return;
-              permissionRequestedRef.current = true;
-              console.log('📞 Calling getUserMedia (Fallback)...');
-              stream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-              });
-          } else {
-             console.log('✅ Using existing stream from props');
-          }
-          
-          streamRef.current = stream;
-
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const audioContext = new AudioContext();
-          if (audioContext.state === 'suspended') await audioContext.resume();
-          audioContextRef.current = audioContext;
-
-          // Visualizer
-          const analyser = audioContext.createAnalyser();
-          analyser.fftSize = 256;
-          const source = audioContext.createMediaStreamSource(stream);
-          source.connect(analyser);
-
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-
-          const checkVolume = () => {
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-            setVolume(Math.round(sum / bufferLength));
-            animationFrameRef.current = requestAnimationFrame(checkVolume);
-          };
-          checkVolume();
-
-          // Start Recognition
+    const startAudio = async () => {
+      try {
+        // --- MOBILE FIX: SKIP getUserMedia ---
+        if (isMobileRef.current) {
+          console.log('📱 Mobile detected: Skipping Visualizer to prevent conflict');
+          // Just start recognition directly
           try {
-            recognitionRef.current.start();
-            isInitializedRef.current = true;
-          } catch (err) {
-            if (err.name !== 'InvalidStateError') throw err;
-            isInitializedRef.current = true;
-          }
-
-        } catch (err) {
-          console.error('❌ Start error:', err);
-          setErrorDetails(`${err.name}: ${err.message}`);
-          setStatus('❌ Error');
+             recognitionRef.current.start();
+          } catch(e) { console.log('Already started'); }
+          return; 
         }
-      };
 
-      startListening();
+        // --- DESKTOP: RUN BOTH ---
+        console.log('🖥️ Desktop detected: Enabling Visualizer');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { echoCancellation: true, noiseSuppression: true } 
+        });
+        streamRef.current = stream;
 
-    } else {
-      // Cleanup logic
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        // Setup Visualizer
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+        audioContextRef.current = audioContext;
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const checkVolume = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const vol = Math.round(dataArray.reduce((a, b) => a + b) / dataArray.length);
+          setVolume(vol);
+          animationFrameRef.current = requestAnimationFrame(checkVolume);
+        };
+        checkVolume();
+
+        // Start Recognition
+        try { recognitionRef.current.start(); } catch(e) {}
+
+      } catch (err) {
+        console.error('Start error:', err);
+        // Fallback: If visualizer fails, still try to run recognition
+        try { recognitionRef.current.start(); } catch(e) {}
+      }
+    };
+
+    startAudio();
+
+    return () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       if (audioContextRef.current) audioContextRef.current.close();
-      
-      // NOTE: We do NOT stop the stream tracks here if they came from props.
-      // App.jsx handles stopping them when changing phases.
-      
-      isInitializedRef.current = false;
-      hasTriggeredRef.current = false;
-    }
-  }, [isEnabled, existingStream]);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [isEnabled]);
+
+  // Helper for mobile "Fake" visualizer
+  const startFakeVisualizer = () => {
+    const update = () => {
+      // Create a gentle random movement
+      setVolume(Math.random() * 30 + 10); 
+      if (!hasTriggeredRef.current) requestAnimationFrame(update);
+    };
+    update();
+  };
 
   return (
     <div className="mt-8 text-center px-4 max-w-2xl mx-auto">
@@ -175,13 +163,16 @@ function AudioTrigger({ onTrigger, isEnabled, existingStream }) {
         </div>
       )}
 
+      {/* Volume Visualizer */}
       <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
         <div 
           className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-75"
-          style={{ width: `${Math.min((volume / 100) * 100, 100)}%` }}
+          style={{ width: `${Math.min(volume * 2, 100)}%` }}
         />
       </div>
-      <p className="text-[10px] opacity-50 mb-6">Mic Sensitivity: {volume} {volume > 20 ? '✓' : ''}</p>
+      <p className="text-[10px] opacity-50 mb-6">
+        Mic Sensitivity: {Math.round(volume)} {isMobileRef.current ? '(Mobile Mode)' : ''}
+      </p>
 
       <p className="text-sm opacity-80">
         <strong>Keywords:</strong> "Ryoiki Tenkai" • "Domain Expansion"
@@ -192,17 +183,8 @@ function AudioTrigger({ onTrigger, isEnabled, existingStream }) {
           {errorDetails}
         </div>
       )}
-
-      <div className="mt-6 text-xs opacity-60 bg-blue-900/20 border border-blue-700 rounded p-3">
-        <p className="mb-2"><strong>💡 Speaking Tips</strong></p>
-        <ul className="text-left space-y-1">
-          <li>✓ Speak clearly and naturally</li>
-          <li>✓ Complete your phrase before pausing</li>
-          <li>✓ Volume bar shows microphone input</li>
-          <li>✓ Watch console for detected speech</li>
-        </ul>
-      </div>
     </div>
   );
 }
+
 export default AudioTrigger;
