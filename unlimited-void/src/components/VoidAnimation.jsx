@@ -3,8 +3,22 @@ import { useEffect, useRef } from 'react';
 import voidStatic from '../assets/void-static.png';
 import channelLogo from '../assets/channel-logo.jpeg';
 
-export default function VoidAnimation({ phase }) {
+export default function VoidAnimation({ phase, triggerType = 'normal' }) {
   const videoRef = useRef(null);
+  const subliminalRef = useRef(null);
+
+  // Subliminal flash effect on mount
+  useEffect(() => {
+    if (phase === 'video' && triggerType === 'normal') {
+      // Flash the kanji for 200ms
+      if (subliminalRef.current) {
+        subliminalRef.current.style.opacity = '1';
+        setTimeout(() => {
+          subliminalRef.current.style.opacity = '0';
+        }, 200);
+      }
+    }
+  }, [phase, triggerType]);
 
   useEffect(() => {
     if (phase === 'video' && videoRef.current) {
@@ -71,6 +85,28 @@ export default function VoidAnimation({ phase }) {
         }
       }}
     >
+      {/* Subliminal Flash Overlay */}
+      <motion.div
+        ref={subliminalRef}
+        initial={{ opacity: 0 }}
+        className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
+        style={{
+          background: 'rgba(168, 85, 247, 0.3)',
+          backdropFilter: 'blur(2px)',
+          opacity: 0,
+          transition: 'opacity 0.1s ease-out',
+        }}
+      >
+        <div className="text-8xl font-black text-purple-200 drop-shadow-2xl select-none"
+          style={{
+            textShadow: '0 0 40px rgba(168, 85, 247, 1), 0 0 80px rgba(168, 85, 247, 0.6)',
+            letterSpacing: '0.3em',
+          }}
+        >
+          無量空処
+        </div>
+      </motion.div>
+
       {phase === 'video' ? (
         <>
           <video

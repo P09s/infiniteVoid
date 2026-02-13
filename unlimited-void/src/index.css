@@ -1,10 +1,174 @@
 @import "tailwindcss";
 
+/* Original animation */
 @keyframes fracture {
   0% { transform: translate(0, 0); }
   50% { transform: translate(10px, 10px) rotate(5deg); }
   100% { transform: translate(0, 0); }
 }
+
 .animate-fracture {
   animation: fracture 0.5s infinite;
+}
+
+/* Screen shake for Hollow Purple */
+@keyframes screenshake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-4px, -4px) rotate(-0.5deg); }
+  20% { transform: translate(4px, 4px) rotate(0.5deg); }
+  30% { transform: translate(-6px, 2px) rotate(-0.3deg); }
+  40% { transform: translate(6px, -2px) rotate(0.3deg); }
+  50% { transform: translate(-8px, -8px) rotate(-0.8deg); }
+  60% { transform: translate(8px, 8px) rotate(0.8deg); }
+  70% { transform: translate(-3px, -3px) rotate(-0.2deg); }
+  80% { transform: translate(3px, 3px) rotate(0.2deg); }
+  90% { transform: translate(-2px, 2px) rotate(-0.1deg); }
+}
+
+/* Subliminal flash effect */
+@keyframes subliminal-flash {
+  0% { opacity: 0; }
+  30% { opacity: 0.8; }
+  70% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+/* Purple blast effect */
+@keyframes purple-blast {
+  0% { 
+    opacity: 0; 
+    background-color: rgba(168, 85, 247, 0.2);
+    filter: brightness(1);
+  }
+  20% { 
+    opacity: 1;
+    background-color: rgba(168, 85, 247, 0.6);
+    filter: brightness(1.2);
+  }
+  50% {
+    opacity: 1;
+    background-color: rgba(168, 85, 247, 0.8);
+    filter: brightness(1.5);
+  }
+  80% { 
+    opacity: 1; 
+    background-color: rgba(255, 255, 255, 0.95);
+    filter: brightness(2);
+  }
+  100% { 
+    opacity: 0.3;
+    background-color: rgba(255, 255, 255, 1);
+    filter: brightness(1.8);
+  }
+}
+
+/* Expanding purple ring */
+@keyframes purple-ring-expand {
+  0% { 
+    width: 80px; 
+    height: 80px; 
+    opacity: 1; 
+    box-shadow: 0 0 30px rgba(168, 85, 247, 1), inset 0 0 20px rgba(168, 85, 247, 0.6);
+    border-width: 4px;
+  }
+  100% { 
+    width: 600px; 
+    height: 600px; 
+    opacity: 0; 
+    box-shadow: 0 0 60px rgba(168, 85, 247, 0.2), inset 0 0 40px rgba(168, 85, 247, 0);
+    border-width: 2px;
+  }
+}
+
+/* Kanji/Eyes glow effect */
+@keyframes kanji-glow {
+  0% { 
+    text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+    opacity: 0.3;
+  }
+  50% { 
+    text-shadow: 0 0 30px rgba(168, 85, 247, 1), 0 0 60px rgba(168, 85, 247, 0.8);
+    opacity: 1;
+  }
+  100% { 
+    text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+    opacity: 0;
+  }
+}
+
+/* Container classes */
+.effects-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.effects-container.active {
+  animation: subliminal-flash 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.effects-container.hollow-purple-blast {
+  animation: purple-blast 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Purple ring visual element */
+.effects-container.hollow-purple-blast::before {
+  content: '';
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border: 4px solid rgba(168, 85, 247, 1);
+  border-radius: 50%;
+  animation: purple-ring-expand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 9999;
+  will-change: transform, width, height, opacity;
+}
+
+/* Subliminal kanji overlay */
+.subliminal-content {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8rem;
+  color: rgba(168, 85, 247, 0.8);
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  z-index: 9998;
+  pointer-events: none;
+  animation: kanji-glow 0.2s ease-out;
+}
+
+/* Mouse trail particles */
+.cursor-particle {
+  position: fixed;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* Optimize for performance */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Smooth transition for video to static phase */
+.void-transition {
+  animation: fade-in-out 0.5s ease-in-out;
+}
+
+@keyframes fade-in-out {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
