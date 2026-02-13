@@ -40,13 +40,8 @@ function InitialScreen({ onPermissionGranted }) {
           )
         );
 
-        await new Promise((resolve, reject) => {
-          const video = document.createElement('video');
-          video.preload = 'auto';
-          video.onloadstart = () => setTimeout(resolve, 500);
-          video.onerror = reject;
-          video.src = videoPath;
-        });
+        // Optional: Pre-fetch video blob to ensure smoother playback
+        await fetch(videoPath).then(r => r.blob()).catch(e => console.log('Video prefetch skipped'));
 
         setIsPreloading(false);
         console.log('✨ Assets preloaded');
@@ -73,7 +68,6 @@ function InitialScreen({ onPermissionGranted }) {
     }, 3000);
 
     try {
-      // Small delay to ensure browser is ready
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const constraints = {
@@ -87,19 +81,17 @@ function InitialScreen({ onPermissionGranted }) {
       console.log('🔊 Calling getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      console.log('✅ Stream obtained, stopping tracks...');
-      stream.getTracks().forEach(track => {
-        console.log('🛑 Stopping track:', track.kind);
-        track.stop();
-      });
+      // --- CHANGE START: DO NOT STOP TRACKS ---
+      console.log('✅ Stream obtained, passing to App...');
+      // removed: stream.getTracks().forEach(track => track.stop()); 
+      // --- CHANGE END ---
 
       clearTimeout(timeoutId);
       setPermissionStatus('granted');
       console.log('✅ Permission granted!');
 
-      // Give time for state to update
       setTimeout(() => {
-        onPermissionGranted();
+        onPermissionGranted(stream); // Pass the active stream object
       }, 300);
 
     } catch (err) {
@@ -108,7 +100,6 @@ function InitialScreen({ onPermissionGranted }) {
       setPermissionStatus('denied');
       
       let userMessage = '';
-      
       if (err.name === 'NotAllowedError') {
         userMessage = 'Microphone permission denied. Please allow it to continue.';
       } else if (err.name === 'NotFoundError') {
@@ -125,6 +116,7 @@ function InitialScreen({ onPermissionGranted }) {
     }
   };
 
+  // ... keep return JSX exactly the same as your original file ...
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -137,7 +129,6 @@ function InitialScreen({ onPermissionGranted }) {
         backgroundPosition: 'center',
       }}
     >
-      {/* Overlay */}
       <div className="absolute inset-0 bg-black/60" />
 
       <div className="relative z-10 text-center px-4 max-w-2xl py-8">
@@ -161,7 +152,6 @@ function InitialScreen({ onPermissionGranted }) {
             : 'Enable microphone to begin.'}
         </motion.p>
 
-        {/* Loading indicator */}
         {isPreloading && (
           <motion.div
             animate={{ opacity: [0.5, 1, 0.5] }}
@@ -172,7 +162,6 @@ function InitialScreen({ onPermissionGranted }) {
           </motion.div>
         )}
 
-        {/* Permission button */}
         {permissionStatus !== 'granted' && (
           <motion.button
             initial={{ opacity: 0, y: 20 }}
@@ -192,7 +181,6 @@ function InitialScreen({ onPermissionGranted }) {
           </motion.button>
         )}
 
-        {/* Timeout warning */}
         {timeoutWarning && permissionStatus === 'requesting' && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -218,7 +206,6 @@ function InitialScreen({ onPermissionGranted }) {
           </motion.div>
         )}
 
-        {/* Error message */}
         {error && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -254,7 +241,6 @@ function InitialScreen({ onPermissionGranted }) {
           </motion.div>
         )}
 
-        {/* Info text */}
         {permissionStatus !== 'granted' && !error && (
           <p className="text-sm opacity-70 mt-4 md:mt-6">
             {isPreloading 
@@ -263,7 +249,6 @@ function InitialScreen({ onPermissionGranted }) {
           </p>
         )}
 
-        {/* Mobile-specific tips */}
         {isMobile && permissionStatus === 'requesting' && (
           <motion.div
             initial={{ opacity: 0 }}

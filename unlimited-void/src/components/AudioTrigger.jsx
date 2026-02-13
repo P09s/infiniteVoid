@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 
-function AudioTrigger({ onTrigger, isEnabled }) {
+function AudioTrigger({ onTrigger, isEnabled, existingStream }) {
   const [status, setStatus] = useState('Ready to listen...');
   const [volume, setVolume] = useState(0);
   const [errorDetails, setErrorDetails] = useState('');
@@ -12,32 +12,18 @@ function AudioTrigger({ onTrigger, isEnabled }) {
   const streamRef = useRef(null);
   const isInitializedRef = useRef(false);
   const animationFrameRef = useRef(null);
-  const permissionRequestedRef = useRef(false); // NEW: Track if we already asked
+  const permissionRequestedRef = useRef(false);
 
   const keywordsRef = useRef([
-    'ryoiki tenkai', 
-    'domain expansion', 
-    'unlimited void', 
-    'ryoki tenkai',
-    'tenkai', 
-    'expansion',
-    'void',
-    'rioki',
-    'tenka',
-    'ten',
-    'muryokusho',
-    'muryo',
-    'kusho',
-    'moriya',
-    'khush',
-    'ho',
-    'morya kusa'
+    'ryoiki tenkai', 'domain expansion', 'unlimited void', 
+    'ryoki tenkai', 'tenkai', 'expansion', 'void',
+    'rioki', 'tenka', 'ten', 'muryokusho', 'muryo', 'kusho',
+    'moriya', 'khush', 'ho', 'morya kusa'
   ]);
 
-  // EFFECT 1: One-time setup of Web Speech API (run once on mount)
+  // EFFECT 1: Web Speech API Setup (Identical to before)
   useEffect(() => {
     console.log('🚀 AudioTrigger mounting...');
-
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
@@ -45,8 +31,6 @@ function AudioTrigger({ onTrigger, isEnabled }) {
       setStatus('Speech recognition not supported');
       return;
     }
-
-    console.log('✅ Web Speech API available');
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
@@ -62,28 +46,21 @@ function AudioTrigger({ onTrigger, isEnabled }) {
 
     recognition.onresult = (event) => {
       let interimTranscript = '';
-      let finalTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript.toLowerCase().trim();
 
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' ';
           console.log('📝 Final result:', transcript);
           setDetectedText(transcript);
-
-          const foundKeyword = keywordsRef.current.some(keyword => 
-            transcript.includes(keyword)
-          );
+          const foundKeyword = keywordsRef.current.some(keyword => transcript.includes(keyword));
 
           if (foundKeyword && !hasTriggeredRef.current) {
-            console.log('✨✨✨ KEYWORD DETECTED:', transcript);
+            console.log('✨ KEYWORD DETECTED:', transcript);
             hasTriggeredRef.current = true;
             onTrigger();
           }
         } else {
           interimTranscript += transcript;
-          console.log('🔤 Interim:', transcript);
           setDetectedText(transcript);
         }
       }
@@ -91,91 +68,54 @@ function AudioTrigger({ onTrigger, isEnabled }) {
 
     recognition.onerror = (event) => {
       console.error('❌ Recognition error:', event.error);
-      setErrorDetails(`Error: ${event.error}`);
-
-      if (event.error === 'no-speech') {
-        setStatus('🎤 No speech, listening...');
-      } else if (event.error === 'audio-capture') {
-        setStatus('❌ Microphone not found');
-      } else if (event.error === 'network') {
-        setStatus('❌ Network error');
+      if (event.error !== 'no-speech') {
+        setErrorDetails(`Error: ${event.error}`);
       }
     };
 
     recognition.onend = () => {
       console.log('🛑 Recognition ended');
-      
       if (isEnabled && !hasTriggeredRef.current) {
-        console.log('🔄 Restarting...');
-        try {
-          recognition.start();
-        } catch (err) {
-          console.log('Restart error:', err.message);
-        }
+        try { recognition.start(); } catch (err) { console.log('Restart error:', err.message); }
       }
     };
 
-    console.log('✅ Recognition instance configured');
-
     return () => {
-      console.log('🧹 Cleaning up recognition...');
-      try {
-        recognition.abort();
-      } catch (err) {
-        console.log('Cleanup error:', err);
-      }
+      try { recognition.abort(); } catch (err) {}
     };
   }, []);
 
-  // EFFECT 2: Handle isEnabled changes - REQUEST PERMISSION ONLY ONCE
+  // EFFECT 2: Handle Audio Context & Stream
   useEffect(() => {
-    if (!recognitionRef.current) {
-      console.log('⚠️ Recognition not ready yet');
-      return;
-    }
+    if (!recognitionRef.current) return;
 
     if (isEnabled) {
-      if (isInitializedRef.current) {
-        console.log('✅ Already listening, not requesting permission again');
-        return;
-      }
-
-      // CRITICAL: Only request permission if we haven't already
-      if (permissionRequestedRef.current) {
-        console.log('⚠️ Permission already requested, waiting for result...');
-        return;
-      }
-
-      console.log('🎯 Requesting permission for first time...');
-      permissionRequestedRef.current = true; // Mark that we asked
+      if (isInitializedRef.current) return;
 
       const startListening = async () => {
         try {
-          setStatus('🎤 Requesting microphone...');
+          let stream = existingStream;
 
-          const constraints = {
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
-            }
-          };
-
-          // CRITICAL: This should only be called ONCE
-          console.log('📞 Calling getUserMedia...');
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          // Only request mic if we didn't get one from props
+          if (!stream) {
+              if (permissionRequestedRef.current) return;
+              permissionRequestedRef.current = true;
+              console.log('📞 Calling getUserMedia (Fallback)...');
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+              });
+          } else {
+             console.log('✅ Using existing stream from props');
+          }
+          
           streamRef.current = stream;
-          console.log('✅ Microphone stream obtained');
 
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const audioContext = new AudioContext();
-          
-          if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-          }
+          if (audioContext.state === 'suspended') await audioContext.resume();
           audioContextRef.current = audioContext;
 
-          // Setup volume visualization
+          // Visualizer
           const analyser = audioContext.createAnalyser();
           analyser.fftSize = 256;
           const source = audioContext.createMediaStreamSource(stream);
@@ -187,74 +127,42 @@ function AudioTrigger({ onTrigger, isEnabled }) {
           const checkVolume = () => {
             analyser.getByteFrequencyData(dataArray);
             let sum = 0;
-            for (let i = 0; i < bufferLength; i++) {
-              sum += dataArray[i];
-            }
-            const newVolume = Math.round(sum / bufferLength);
-            setVolume(newVolume);
+            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+            setVolume(Math.round(sum / bufferLength));
             animationFrameRef.current = requestAnimationFrame(checkVolume);
           };
-
           checkVolume();
 
-          // Start recognition
+          // Start Recognition
           try {
             recognitionRef.current.start();
-            console.log('✅ Recognition started');
             isInitializedRef.current = true;
           } catch (err) {
-            if (err.name === 'InvalidStateError') {
-              console.log('⚠️ Recognition already running');
-              isInitializedRef.current = true;
-            } else {
-              throw err;
-            }
+            if (err.name !== 'InvalidStateError') throw err;
+            isInitializedRef.current = true;
           }
 
         } catch (err) {
-          console.error('❌ Start error:', err.name, err.message);
+          console.error('❌ Start error:', err);
           setErrorDetails(`${err.name}: ${err.message}`);
           setStatus('❌ Error');
-          // Reset the flag so user can try again
-          permissionRequestedRef.current = false;
         }
       };
 
       startListening();
 
     } else {
-      console.log('⏸️ Stopping speech recognition...');
-
-      try {
-        recognitionRef.current.abort();
-      } catch (err) {
-        console.log('Abort error:', err);
-      }
-
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (err) {
-          console.log('Context close error:', err);
-        }
-      }
-
+      // Cleanup logic
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
+      
+      // NOTE: We do NOT stop the stream tracks here if they came from props.
+      // App.jsx handles stopping them when changing phases.
+      
       isInitializedRef.current = false;
       hasTriggeredRef.current = false;
-      permissionRequestedRef.current = false; // Reset permission flag
-      console.log('🛑 Stopped');
     }
-
-  }, [isEnabled]);
+  }, [isEnabled, existingStream]);
 
   return (
     <div className="mt-8 text-center px-4 max-w-2xl mx-auto">
@@ -263,22 +171,17 @@ function AudioTrigger({ onTrigger, isEnabled }) {
       {detectedText && (
         <div className="mb-4 p-3 bg-white/10 rounded-lg border border-white/20">
           <p className="text-xs opacity-60 uppercase tracking-widest mb-1">Detected Speech</p>
-          <p className="text-lg text-cyan-300 animate-pulse font-mono">
-            "{detectedText}"
-          </p>
+          <p className="text-lg text-cyan-300 animate-pulse font-mono">"{detectedText}"</p>
         </div>
       )}
 
-      {/* Volume Visualizer */}
       <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
         <div 
           className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-75"
           style={{ width: `${Math.min((volume / 100) * 100, 100)}%` }}
         />
       </div>
-      <p className="text-[10px] opacity-50 mb-6">
-        Mic Sensitivity: {volume} {volume > 20 ? '✓' : ''}
-      </p>
+      <p className="text-[10px] opacity-50 mb-6">Mic Sensitivity: {volume} {volume > 20 ? '✓' : ''}</p>
 
       <p className="text-sm opacity-80">
         <strong>Keywords:</strong> "Ryoiki Tenkai" • "Domain Expansion"
@@ -302,5 +205,4 @@ function AudioTrigger({ onTrigger, isEnabled }) {
     </div>
   );
 }
-
 export default AudioTrigger;
